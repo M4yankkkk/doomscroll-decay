@@ -1,7 +1,8 @@
 // Applies a decay state (from DD.decayAt) to the page: global strengths on
 // :root, which text elements bleed/erode/wobble, which posts tilt, and the
-// SVG pixelation filter. Text discovery is lazy and runs in idle time, so
-// nothing is scanned until the page actually starts to rot.
+// SVG pixelation filter, and which text has slipped into the typewriter
+// face. Text discovery is lazy and runs in idle time, so nothing is
+// scanned until the page actually starts to rot.
 (() => {
   const DD = globalThis.DD;
   const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -12,10 +13,13 @@
   const POSTS =
     'article,ytd-rich-item-renderer,ytd-video-renderer,ytd-compact-video-renderer,' +
     'ytd-reel-item-renderer,ytd-comment-thread-renderer';
-  const TEXT_ATTRS = ['data-dd-ink', 'data-dd-wob', 'data-dd-jit'];
+  const TEXT_ATTRS = ['data-dd-ink', 'data-dd-wob', 'data-dd-jit', 'data-dd-font', 'data-dd-smudge'];
   const ALL_ATTRS = [...TEXT_ATTRS, 'data-dd-v', 'data-dd-post'];
   const FADE_OUT_MS = 3200;
   const MAX_WOBBLE_HEIGHT = 420;
+  // Font swaps go to running text, not buttons and labels, a few at a time.
+  const FONT_MIN_CHARS = 20;
+  const MAX_SWAPS_PER_TICK = 6;
 
   const variant = (el) => {
     if (!el.hasAttribute('data-dd-v')) el.setAttribute('data-dd-v', String((Math.random() * 8) | 0));
@@ -23,13 +27,15 @@
 
   DD.Decay = class {
     constructor() {
-      this.entries = []; // { el, r, w, j, target }
+      this.entries = []; // { el, r, w, j, f, long, target }
       this.seen = new WeakSet();
       this.pendingNodes = new Set();
       this.walker = null;
       this.idleHandle = null;
       this.fading = new Map(); // "attr" on el -> timestamp it started fading out
       this.wobTargets = new Set();
+      this.smudging = new Map(); // el -> whether it ends up in the typewriter face
+      this.rotFontReady = false;
       this.lastVars = {};
       this.lastPixel = 0;
       this.tiltOffSince = 0;
@@ -60,7 +66,8 @@
     }
 
     get wantsText() {
-      return !!this.state && (this.state.inkShare > 0 || this.state.wobbleShare > 0);
+      const s = this.state;
+      return !!s && (s.inkShare > 0 || s.wobbleShare > 0 || s.fontShare > 0);
     }
 
     buildFilters() {
@@ -115,6 +122,11 @@
       const pixel = Math.round(s.pixel);
       html.toggleAttribute('data-dd-pix', pixel >= 2);
       if (pixel >= 2) this.setPixelSize(pixel);
+
+      if (s.fontShare > 0 && !this.rotFontRequested) {
+        this.rotFontRequested = true;
+        DD.loadFonts('rot').then(() => (this.rotFontReady = true));
+      }
 
       if (s.tilt > 0.005) this.markPosts();
       if (this.wantsText) this.scheduleScan();
@@ -173,10 +185,19 @@
     consider(textNode) {
       const el = textNode.parentElement;
       if (!el || this.seen.has(el)) return;
-      if (textNode.nodeValue.trim().length < 2) return;
+      const length = textNode.nodeValue.trim().length;
+      if (length < 2) return;
       this.seen.add(el);
       if (el === document.body || el.closest(SKIP)) return;
-      this.entries.push({ el, r: Math.random(), w: Math.random(), j: Math.random(), target: undefined });
+      this.entries.push({
+        el,
+        r: Math.random(),
+        w: Math.random(),
+        j: Math.random(),
+        f: Math.random(),
+        long: length >= FONT_MIN_CHARS,
+        target: undefined,
+      });
     }
 
     // Wobble needs a box that transforms apply to, so climb out of inline
@@ -231,6 +252,7 @@
       }
       this.entries.length = alive;
       for (const e of this.entries) this.setFlag(e.el, 'data-dd-ink', e.r < s.inkShare);
+      this.syncFonts(s);
 
       for (const t of this.wobTargets) {
         if (!t.isConnected) this.wobTargets.delete(t);
@@ -253,6 +275,28 @@
           attrs.delete(attr);
         }
         if (!attrs.size || !el.isConnected) this.fading.delete(el);
+      }
+    }
+
+    // A font can't be transitioned, so each swap is a smudge: the element
+    // blurs out, changes face while it's unreadable (next tick), and
+    // sharpens again. The blur/opacity transition lives in decay.css.
+    syncFonts(s) {
+      for (const [el, want] of this.smudging) {
+        el.toggleAttribute('data-dd-font', want);
+        el.removeAttribute('data-dd-smudge');
+      }
+      this.smudging.clear();
+
+      let budget = MAX_SWAPS_PER_TICK;
+      for (const e of this.entries) {
+        if (!budget) break;
+        const want = this.rotFontReady && e.long && e.f < s.fontShare;
+        if (want === e.el.hasAttribute('data-dd-font')) continue;
+        variant(e.el);
+        e.el.setAttribute('data-dd-smudge', '');
+        this.smudging.set(e.el, want);
+        budget--;
       }
     }
 

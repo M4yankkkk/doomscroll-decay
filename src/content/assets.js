@@ -84,26 +84,40 @@
     };
   };
 
-  const FONTS = [
-    { family: 'Doomscroll Serif', path: 'assets/fonts/instrument-serif-italic.woff2', descriptors: { style: 'italic' } },
-    { family: 'Doomscroll Sans', path: 'assets/fonts/inter-var.woff2', descriptors: { weight: '100 900' } },
-  ];
-  let fontsRequested = false;
-
-  DD.loadFonts = () => {
-    if (fontsRequested) return;
-    fontsRequested = true;
-    for (const { family, path, descriptors } of FONTS) {
-      chrome.runtime
-        .sendMessage({ type: 'dd:asset', path })
-        .then((res) => {
-          if (!res?.ok) return;
-          const bytes = Uint8Array.from(atob(res.base64), (c) => c.charCodeAt(0));
-          const face = new FontFace(family, bytes, descriptors);
-          document.fonts.add(face);
-          return face.load();
-        })
-        .catch(() => {}); // The card's fallback font stack is fine.
-    }
+  const FONTS = {
+    card: [
+      { family: 'Doomscroll Serif', path: 'assets/fonts/instrument-serif-italic.woff2', descriptors: { style: 'italic' } },
+      { family: 'Doomscroll Sans', path: 'assets/fonts/inter-var.woff2', descriptors: { weight: '100 900' } },
+    ],
+    // The typewriter face that page text slips into. Special Elite runs
+    // wide and short, so it is scaled and given sans-like line metrics:
+    // swapped text keeps roughly its old width and line height, and the
+    // feed doesn't jump. (Overrides are scaled by size-adjust too.)
+    rot: [
+      {
+        family: 'Doomscroll Rot',
+        path: 'assets/fonts/special-elite.woff2',
+        descriptors: { sizeAdjust: '93%', ascentOverride: '99%', descentOverride: '26%', lineGapOverride: '0%' },
+      },
+    ],
   };
+  const fontLoads = {};
+
+  // Resolves once the group is usable; a failed load resolves too, since
+  // every use has a fallback font stack.
+  DD.loadFonts = (group) =>
+    (fontLoads[group] ||= Promise.all(
+      FONTS[group].map(({ family, path, descriptors }) =>
+        chrome.runtime
+          .sendMessage({ type: 'dd:asset', path })
+          .then((res) => {
+            if (!res?.ok) return;
+            const bytes = Uint8Array.from(atob(res.base64), (c) => c.charCodeAt(0));
+            const face = new FontFace(family, bytes, descriptors);
+            document.fonts.add(face);
+            return face.load();
+          })
+          .catch(() => {}),
+      ),
+    ));
 })();

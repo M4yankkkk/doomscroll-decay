@@ -15,7 +15,11 @@ const CONTENT_JS = [
 ];
 const CONTENT_CSS = ['src/content/decay.css'];
 const KEEP_DAYS = 14;
-const ASSET_PATHS = ['assets/fonts/instrument-serif-italic.woff2', 'assets/fonts/inter-var.woff2'];
+const ASSET_PATHS = [
+  'assets/fonts/instrument-serif-italic.woff2',
+  'assets/fonts/inter-var.woff2',
+  'assets/fonts/special-elite.woff2',
+];
 
 // Serialise every read-modify-write of storage.
 let chain = Promise.resolve();

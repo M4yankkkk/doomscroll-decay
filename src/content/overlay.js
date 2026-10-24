@@ -5,7 +5,7 @@
 // which is always, on a feed. A root filter doesn't break fixed headers
 // (the root is exempt from creating a containing block).
 //
-// Grain, vignette, flicker and the "decomposing" card live in a closed
+// Grain, vignette, flicker, water damage and the "decomposing" card live in a closed
 // shadow root on a manual popover, so they sit in the browser's top layer:
 // above the root filter (the card keeps its colour) and above the site.
 // The host is a plain div: sites built on web components (Reddit) style
@@ -13,6 +13,60 @@
 (() => {
   const DD = globalThis.DD;
   const SNOOZE_MS = 10 * 60_000;
+
+  // Water damage is drawn at low resolution and stretched over the
+  // viewport; the browser's smoothing turns the noise into soft blooms.
+  const MOLD_W = 360;
+  const MOLD_STEP = 0.004; // redraw only when the spread moves this much
+
+  // Seeded, so a resize (devtools opening, say) redraws the same stains
+  // at the new size instead of a different pattern.
+  function seededRandom(seed) {
+    return () => {
+      seed = (seed + 0x6d2b79f5) | 0;
+      let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  // Smooth value noise in 0..1: three octaves of smoothly blended random grids.
+  function noiseField(w, h, seed) {
+    const random = seededRandom(seed);
+    const out = new Float32Array(w * h);
+    let amp = 1;
+    let total = 0;
+    for (const cell of [64, 24, 9]) {
+      const gw = Math.ceil(w / cell) + 2;
+      const gh = Math.ceil(h / cell) + 2;
+      const grid = Float32Array.from({ length: gw * gh }, random);
+      for (let y = 0; y < h; y++) {
+        const gy = y / cell;
+        const y0 = gy | 0;
+        const ty = (gy - y0) * (gy - y0) * (3 - 2 * (gy - y0));
+        for (let x = 0; x < w; x++) {
+          const gx = x / cell;
+          const x0 = gx | 0;
+          const tx = (gx - x0) * (gx - x0) * (3 - 2 * (gx - x0));
+          const a = grid[y0 * gw + x0] + (grid[y0 * gw + x0 + 1] - grid[y0 * gw + x0]) * tx;
+          const b = grid[(y0 + 1) * gw + x0] + (grid[(y0 + 1) * gw + x0 + 1] - grid[(y0 + 1) * gw + x0]) * tx;
+          out[y * w + x] += (a + (b - a) * ty) * amp;
+        }
+      }
+      total += amp;
+      amp *= 0.5;
+    }
+    // Summed octaves bunch up around 0.5; stretch back to the full range
+    // so the damage spreads in patches rather than an even band.
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const v of out) {
+      if (v < lo) lo = v;
+      if (v > hi) hi = v;
+    }
+    for (let i = 0; i < out.length; i++) out[i] = (out[i] - lo) / (hi - lo || 1);
+    return out;
+  }
 
   const template = () => `
 <style>
@@ -30,6 +84,9 @@
     transition: --dd-grain 1s linear, --dd-vig 1s linear !important;
   }
   .layer { position: absolute; inset: 0; }
+
+  .mold { display: none; width: 100%; height: 100%; }
+  :host([data-mold]) .mold { display: block; }
 
   .grain, .vignette, .flicker { display: none; }
   :host([data-broken]) :is(.grain, .vignette, .flicker) { display: block; }
@@ -148,6 +205,7 @@
   }
 </style>
 <div class="layer vignette"></div>
+<canvas class="layer mold"></canvas>
 <div class="layer grain"></div>
 <div class="layer flicker"></div>
 <div class="card" role="status" aria-live="polite">
@@ -168,6 +226,14 @@
       const root = this.host.attachShadow({ mode: 'closed' });
       root.innerHTML = template();
       this.timeEl = root.querySelector('.time');
+      this.mold = {
+        canvas: root.querySelector('.mold'),
+        seed: (Math.random() * 2 ** 31) | 0,
+        field: null,
+        w: 0,
+        h: 0,
+        key: '',
+      };
       this.snoozedUntil = 0;
       this.last = {};
 
@@ -264,6 +330,66 @@
       this.pageRule.style.setProperty('transition', 'filter 0.35s linear', 'important');
     }
 
+    // Tea-brown stains on light pages, pale mildew on dark ones. They sit
+    // in the top layer, above the colour filter, so they keep their colour
+    // while the feed underneath goes gray. Each stain has a darker tide
+    // line along its front, like real water damage.
+    drawMold(amount) {
+      const m = this.mold;
+      this.host.toggleAttribute('data-mold', amount > 0.001);
+      if (amount <= 0.001) return;
+
+      const w = MOLD_W;
+      const h = Math.max(120, Math.round((MOLD_W * innerHeight) / Math.max(innerWidth, 1)));
+      const dark = this.isDark();
+      const level = Math.round(amount / MOLD_STEP);
+      const key = `${level}|${w}x${h}|${dark}`;
+      if (key === m.key) return;
+      m.key = key;
+      if (m.w !== w || m.h !== h) {
+        m.canvas.width = m.w = w;
+        m.canvas.height = m.h = h;
+        m.field = noiseField(w, h, m.seed);
+        m.image = new ImageData(w, h);
+      }
+
+      // `front` is how far from the edges the damage reaches (0..1 of the
+      // way to the centre). Corners soak through first.
+      const front = level * MOLD_STEP * 0.56 - 0.12;
+      const [fill, rim] = dark
+        ? [[122, 124, 96, 0.17], [150, 150, 116, 0.2]]
+        : [[140, 102, 52, 0.17], [104, 70, 32, 0.3]];
+      const px = m.image.data;
+      for (let y = 0; y < h; y++) {
+        const dy = Math.min(y, h - 1 - y) / (h / 2);
+        for (let x = 0; x < w; x++) {
+          const dx = Math.min(x, w - 1 - x) / (w / 2);
+          const i = y * w + x;
+          const v = Math.min(dx, dy) * 0.4 + Math.sqrt(dx * dy) * 0.6 + (m.field[i] - 0.5) * 0.7;
+          const depth = front - v;
+          let r = 0, g = 0, b = 0, a = 0;
+          if (depth > -0.03) {
+            const inside = Math.min(Math.max(depth / 0.05, 0), 1);
+            const deep = Math.min(Math.max(depth / 0.25, 0), 1);
+            const fa = fill[3] * inside * (0.55 + 0.75 * deep);
+            const t = depth / 0.022;
+            const ra = rim[3] * Math.exp(-t * t);
+            a = fa + ra * (1 - fa);
+            const k = a ? ra / a : 0;
+            r = fill[0] + (rim[0] - fill[0]) * k;
+            g = fill[1] + (rim[1] - fill[1]) * k;
+            b = fill[2] + (rim[2] - fill[2]) * k;
+          }
+          const o = i * 4;
+          px[o] = r;
+          px[o + 1] = g;
+          px[o + 2] = b;
+          px[o + 3] = a * 255;
+        }
+      }
+      m.canvas.getContext('2d').putImageData(m.image, 0, 0);
+    }
+
     setVar(name, value) {
       const v = value.toFixed(3);
       if (this.last[name] === v) return;
@@ -278,10 +404,11 @@
       this.setVar('--dd-grain', s.broken * 0.3);
       this.setVar('--dd-vig', s.broken);
       this.host.toggleAttribute('data-broken', s.broken > 0.001);
+      this.drawMold(s.mold);
 
       const showCard = s.message && Date.now() > this.snoozedUntil;
       if (showCard) {
-        DD.loadFonts();
+        DD.loadFonts('card');
         const minutes = Math.floor(totalMs / 60000);
         const text = `${minutes} minute${minutes === 1 ? '' : 's'} of feed today`;
         if (this.timeEl.textContent !== text) this.timeEl.textContent = text;

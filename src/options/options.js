@@ -2,10 +2,10 @@ const $ = (id) => document.getElementById(id);
 
 const STAGE_EFFECTS = {
   fade: 'Colour slowly drains out of the page.',
-  bleed: 'Text starts to bleed ink and wear away.',
-  warp: 'Posts tilt and images begin to pixelate.',
-  unravel: 'Words wobble, and more of the text bleeds.',
-  rot: 'Near-grayscale, grainy, heavily pixelated. A note suggests going outside.',
+  bleed: 'Text bleeds ink, wears away, and slips into an old typewriter face.',
+  warp: 'Posts tilt, images pixelate, and water damage creeps in from the corners.',
+  unravel: 'Words wobble, and more of the text bleeds and changes face.',
+  rot: 'Near-grayscale, stained, grainy, heavily pixelated. A note suggests going outside.',
 };
 
 let savedTimer = null;

@@ -39,13 +39,19 @@
       fade: ramp(m, [[fade, 0], [f1, 0.65], [bleed, 0.72], [unravel, 0.88], [rot, 1]]),
 
       // Ink bleed + erosion: share of text elements affected, and how hard.
-      inkShare: ramp(m, [[bleed, 0], [b1, 0.25], [warp, 0.38], [unravel, 0.58], [rot, 0.88]]),
-      ink: ramp(m, [[bleed, 0.75], [unravel, 0.95], [rot, 1.15]]),
-      erode: ramp(m, [[bleed, 0.32], [warp, 0.45], [unravel, 0.62], [rot, 0.86]]),
+      inkShare: ramp(m, [[bleed, 0], [b1, 0.3], [warp, 0.42], [unravel, 0.6], [rot, 0.88]]),
+      ink: ramp(m, [[bleed, 1], [unravel, 1.2], [rot, 1.4]]),
+      erode: ramp(m, [[bleed, 0.38], [warp, 0.5], [unravel, 0.64], [rot, 0.86]]),
+
+      // Share of longer text that has slipped into a worn typewriter face.
+      fontShare: ramp(m, [[bleed, 0], [b1, 0.22], [warp, 0.3], [unravel, 0.4], [u1, 0.5], [rot, 0.7]]),
 
       // Posts tilt (degrees), images pixelate (block size in px; < 2 means off).
       tilt: ramp(m, [[warp, 0], [w1, 0.7], [unravel, 1.25], [rot, 2.3]]),
       pixel: ramp(m, [[warp, 1], [w1, 3], [unravel, 6], [rot, 14]]),
+
+      // Water damage creeping in from the screen edges, 0..1.
+      mold: ramp(m, [[warp, 0], [w1, 0.14], [unravel, 0.4], [u1, 0.5], [rot, 1]]),
 
       // Text blocks that sway, and how far (px).
       wobbleShare: ramp(m, [[unravel, 0], [u1, 0.28], [rot, 0.6]]),
