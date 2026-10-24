@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Doomscroll Decay · Settings</title>
+  <link rel="stylesheet" href="../shared/ui.css">
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main class="page">
+    <header class="head">
+      <img src="../../assets/icons/icon.svg" width="44" height="44" alt="">
+      <div>
+        <h1>Doomscroll Decay</h1>
+        <p class="sub">The longer you scroll, the more the page rots. Time counts only while a feed tab is visible and you've scrolled in the last 30&nbsp;seconds.</p>
+      </div>
+    </header>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Feed sites</h2>
+        <p>Subdomains are included, so <code>reddit.com</code> also covers <code>old.reddit.com</code>. Adding a site asks Chrome for permission to run on it.</p>
+      </div>
+      <ul class="sites" id="sites"></ul>
+      <form class="add" id="addForm" autocomplete="off">
+        <input id="addInput" type="text" placeholder="e.g. tiktok.com" spellcheck="false" aria-label="Site to add">
+        <button class="primary-btn" type="submit">Add site</button>
+      </form>
+      <p class="error" id="siteError" role="alert"></p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Decay schedule</h2>
+        <p>Minutes of active scrolling per day before each stage begins. Every effect eases in between stages, so nothing switches on all at once.</p>
+      </div>
+      <ol class="stages" id="stages"></ol>
+      <p class="error" id="stageError" role="alert"></p>
+      <div class="row-end">
+        <button class="ghost-btn" id="restore" type="button">Restore defaults</button>
+      </div>
+    </section>
+
+    <footer class="foot">
+      <span>Everything is stored locally in your browser. This extension makes no network requests.</span>
+      <span class="saved" id="saved" aria-live="polite">Saved</span>
+    </footer>
+  </main>
+
+  <script src="../shared/config.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

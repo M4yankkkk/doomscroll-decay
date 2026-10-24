@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="220" height="220">
+  <!-- Film grain: dark and light specks with real transparency. -->
+  <filter id="g" x="0" y="0" width="100%" height="100%">
+    <feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" stitchTiles="stitch" result="t"/>
+    <feColorMatrix in="t" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  3.2 0 0 0 -1.7" result="d"/>
+    <feColorMatrix in="t" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  -3.2 0 0 0 1.5" result="l"/>
+    <feMerge><feMergeNode in="d"/><feMergeNode in="l"/></feMerge>
+  </filter>
+  <rect width="220" height="220" filter="url(#g)"/>
+</svg>

@@ -1,0 +1,127 @@
+/*
+ * Doomscroll Decay: effects on the page itself.
+ *
+ * main.js writes the global strengths (--dd-ink-s, --dd-erode, --dd-tilt,
+ * --dd-wobble, --dd-broken) onto :root in small steps several times a second.
+ * They are deliberately not transitioned there: animating an inherited
+ * property on :root would restyle the entire page every frame. Smoothness
+ * comes from per-element transitions (--dd-in, --dd-win, rotate) instead.
+ *
+ * Colour loss, grain and the message live in overlay.js, outside the page.
+ */
+
+@property --dd-ink-s { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --dd-erode { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --dd-tilt { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --dd-wobble { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --dd-broken { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --dd-in { syntax: '<number>'; inherits: false; initial-value: 0; }
+
+/* Overlay colour/grain values; set on the overlay host only. */
+@property --dd-sat { syntax: '<number>'; inherits: true; initial-value: 1; }
+@property --dd-sepia { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --dd-con { syntax: '<number>'; inherits: true; initial-value: 1; }
+@property --dd-bri { syntax: '<number>'; inherits: true; initial-value: 1; }
+@property --dd-grain { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --dd-vig { syntax: '<number>'; inherits: true; initial-value: 0; }
+@property --dd-win { syntax: '<number>'; inherits: false; initial-value: 0; }
+
+/* Per-element variety, so neighbouring lines never decay in lockstep. */
+[data-dd-v='0'] { --dd-lean: 0.6; --dd-seed: 0.78; --dd-delay: -0.4s; --dd-dur: 3.1s; --dd-mpos: 13px 41px; }
+[data-dd-v='1'] { --dd-lean: -1.7; --dd-seed: 1.12; --dd-delay: -1.9s; --dd-dur: 3.7s; --dd-mpos: 97px 5px; }
+[data-dd-v='2'] { --dd-lean: 0.3; --dd-seed: 0.92; --dd-delay: -2.6s; --dd-dur: 2.8s; --dd-mpos: 54px 120px; }
+[data-dd-v='3'] { --dd-lean: 0.8; --dd-seed: 1.3; --dd-delay: -0.9s; --dd-dur: 4.2s; --dd-mpos: 140px 77px; }
+[data-dd-v='4'] { --dd-lean: -1.2; --dd-seed: 0.85; --dd-delay: -3.3s; --dd-dur: 3.4s; --dd-mpos: 21px 150px; }
+[data-dd-v='5'] { --dd-lean: 0; --dd-seed: 1.05; --dd-delay: -1.2s; --dd-dur: 2.6s; --dd-mpos: 118px 33px; }
+[data-dd-v='6'] { --dd-lean: 0.5; --dd-seed: 1.2; --dd-delay: -2.2s; --dd-dur: 3.9s; --dd-mpos: 66px 96px; }
+[data-dd-v='7'] { --dd-lean: -0.4; --dd-seed: 0.96; --dd-delay: -0.1s; --dd-dur: 3s; --dd-mpos: 3px 64px; }
+
+/* ── Ink bleed + erosion ───────────────────────────────────────────────
+ * Bleed: a hairline stroke thickens the glyphs and a soft shadow lets the
+ * ink spread. Erosion: a solid mask layer is unioned with a speckle mask;
+ * as the solid layer's alpha drops, only the speckles survive and the
+ * letters wear away. No layout properties change, so nothing reflows.
+ * The speckle texture is an extension file (decay.js sets --dd-erode-mask):
+ * sites' CSP often blocks data: images but never extension resources.
+ */
+[data-dd-ink] {
+  transition: --dd-in 2.8s cubic-bezier(0.25, 0.6, 0.3, 1);
+  -webkit-text-stroke: calc(var(--dd-in) * var(--dd-ink-s) * var(--dd-seed, 1) * 0.2px) currentColor;
+  text-shadow:
+    0 0 calc(var(--dd-in) * var(--dd-ink-s) * var(--dd-seed, 1) * 0.6px) currentColor,
+    0 calc(var(--dd-in) * var(--dd-ink-s) * 0.6px)
+      calc(var(--dd-in) * var(--dd-ink-s) * var(--dd-seed, 1) * 3.4px)
+      color-mix(in srgb, currentColor 55%, transparent);
+  mask-image:
+    linear-gradient(rgb(0 0 0 / calc(1 - var(--dd-in) * var(--dd-erode) * var(--dd-seed, 1))) 0 0),
+    var(--dd-erode-mask, linear-gradient(transparent 0 0));
+  mask-size: 100% 100%, 170px 170px;
+  mask-repeat: no-repeat, repeat;
+  mask-position: 0 0, var(--dd-mpos, 0 0);
+  mask-composite: add;
+}
+[data-dd-ink='1'] { --dd-in: 1; }
+
+/* ── Wobble / jitter ─────────────────────────────────────────────────── */
+[data-dd-wob] {
+  transition: --dd-win 3s ease;
+  animation: dd-wobble var(--dd-dur, 3.2s) ease-in-out var(--dd-delay, 0s) infinite alternate;
+}
+[data-dd-wob='1'] { --dd-win: 1; }
+[data-dd-wob][data-dd-jit] {
+  animation:
+    dd-wobble var(--dd-dur, 3.2s) ease-in-out var(--dd-delay, 0s) infinite alternate,
+    dd-jitter calc(var(--dd-dur, 3.2s) * 1.7) steps(1, end) var(--dd-delay, 0s) infinite;
+}
+
+@keyframes dd-wobble {
+  0% {
+    translate: calc(var(--dd-win) * var(--dd-wobble) * -1px) calc(var(--dd-win) * var(--dd-wobble) * 0.35px);
+    rotate: calc(var(--dd-win) * var(--dd-wobble) * -0.14deg);
+  }
+  35% {
+    translate: calc(var(--dd-win) * var(--dd-wobble) * 0.8px) calc(var(--dd-win) * var(--dd-wobble) * -0.5px);
+    rotate: calc(var(--dd-win) * var(--dd-wobble) * 0.1deg);
+  }
+  70% {
+    translate: calc(var(--dd-win) * var(--dd-wobble) * -0.3px) calc(var(--dd-win) * var(--dd-wobble) * 0.6px);
+    rotate: calc(var(--dd-win) * var(--dd-wobble) * -0.05deg);
+  }
+  100% {
+    translate: calc(var(--dd-win) * var(--dd-wobble) * 0.9px) calc(var(--dd-win) * var(--dd-wobble) * -0.2px);
+    rotate: calc(var(--dd-win) * var(--dd-wobble) * 0.16deg);
+  }
+}
+
+/* Mostly still, then a few frames of glitch. */
+@keyframes dd-jitter {
+  0%, 84%, 100% { transform: none; }
+  86% { transform: translate(calc(var(--dd-broken) * 2px), calc(var(--dd-broken) * -1px)) skewX(calc(var(--dd-broken) * -5deg)); }
+  88% { transform: translate(calc(var(--dd-broken) * -2.5px), 0) skewX(calc(var(--dd-broken) * 3deg)); }
+  90% { transform: none; }
+  95% { transform: translate(calc(var(--dd-broken) * 1px), calc(var(--dd-broken) * 1.5px)); }
+  96% { transform: none; }
+}
+
+/* ── Tilt ──────────────────────────────────────────────────────────────
+ * Rotating <html> would break every fixed header, so the posts tilt
+ * instead. decay.js marks the outermost post containers. Once the page
+ * is breaking, some posts start leaning the other way.
+ */
+html[data-dd-tilt] [data-dd-post] {
+  rotate: calc(var(--dd-tilt) * (1 + var(--dd-broken) * var(--dd-lean, 0)) * 1deg) !important;
+  transition: rotate 0.6s linear;
+}
+
+/* ── Pixelation ─────────────────────────────────────────────────────────
+ * X renders media as background-image divs, so those count as images too.
+ * Video is left alone: an SVG filter on playing video is too expensive.
+ */
+html[data-dd-pix] :is(img, div[style*='background-image: url']) {
+  filter: url(#dd-pixelate) !important;
+}
+
+/* Respect reduced motion: keep the rot, drop the movement. */
+@media (prefers-reduced-motion: reduce) {
+  [data-dd-wob], [data-dd-wob][data-dd-jit] { animation: none; }
+}

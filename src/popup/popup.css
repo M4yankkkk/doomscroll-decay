@@ -1,0 +1,158 @@
+body { width: 340px; }
+
+.app {
+  --accent: #9ddfae;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 14px 16px 14px;
+  transition: --accent 0.6s ease;
+}
+
+/* The accent itself rots as the stage advances. */
+@property --accent { syntax: '<color>'; inherits: true; initial-value: #9ddfae; }
+
+.top { display: flex; align-items: center; gap: 8px; }
+.brand { display: flex; align-items: center; gap: 9px; margin-right: auto; font-weight: 600; letter-spacing: -0.01em; }
+.brand img { border-radius: 6px; }
+.demo-pill {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+}
+.demo-pill[hidden] { display: none; }
+
+/* ── Hero ───────────────────────────────────────────────────────────── */
+.hero { display: flex; flex-direction: column; gap: 2px; padding-top: 4px; }
+.total {
+  margin: 2px 0 0;
+  font-size: 44px;
+  font-weight: 620;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+}
+.stage { display: flex; align-items: baseline; gap: 8px; margin: 4px 0 0; min-width: 0; }
+.stage-name {
+  flex: none;
+  font: italic 400 22px/1 var(--serif);
+  color: var(--accent);
+}
+.stage-line {
+  min-width: 0;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Meter ──────────────────────────────────────────────────────────── */
+.meter { display: flex; flex-direction: column; gap: 8px; }
+.track {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+.fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  clip-path: inset(0 100% 0 0 round 999px);
+}
+.ready .fill { transition: clip-path 0.7s var(--ease-out); }
+.ticks { position: absolute; inset: 0; }
+.ticks i {
+  position: absolute;
+  top: -3px;
+  width: 1px;
+  height: 14px;
+  background: var(--line-strong);
+}
+.knob {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: var(--bg);
+  box-shadow: inset 0 0 0 3px var(--accent), 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.ready .knob { transition: left 0.7s var(--ease-out); }
+.tick-labels { position: relative; height: 14px; color: var(--faint); font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.tick-labels span { position: absolute; transform: translateX(-50%); }
+.tick-labels span:last-child { transform: translateX(-100%); }
+.tick-labels span.reached { color: var(--muted); }
+.next { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+.next b { color: var(--text); font-weight: 550; font-variant-numeric: tabular-nums; }
+
+/* ── Sites ──────────────────────────────────────────────────────────── */
+.sites { display: flex; flex-direction: column; gap: 8px; }
+.site-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.site-list li {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 64px 58px;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 10px;
+}
+.site-list li + li { box-shadow: 0 -1px 0 var(--line); }
+.mono {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: uppercase;
+}
+.site-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar { height: 4px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: var(--accent);
+}
+.ready .bar i { transition: width 0.6s var(--ease-out); }
+.site-time { text-align: right; font-variant-numeric: tabular-nums; color: var(--text); }
+.site-list li.idle .site-time, .site-list li.idle .site-name { color: var(--faint); }
+.site-empty { padding: 10px 8px; color: var(--muted); }
+
+/* ── Controls ───────────────────────────────────────────────────────── */
+.toggle-row {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.toggle-copy { display: flex; flex-direction: column; gap: 1px; }
+.toggle-copy strong { font-weight: 600; }
+.toggle-copy small { color: var(--muted); font-size: 11.5px; }
+
+.foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.privacy { color: var(--faint); font-size: 10.5px; line-height: 1.35; text-align: right; }
+#reset { flex: none; white-space: nowrap; }
+#reset.armed {
+  border-color: color-mix(in srgb, var(--danger) 55%, transparent);
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
+}

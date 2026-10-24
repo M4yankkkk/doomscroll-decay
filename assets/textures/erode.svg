@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="170" height="170">
+  <!-- Speckle mask for text erosion: opaque paper with transparent pits. -->
+  <filter id="n" x="0" y="0" width="1" height="1">
+    <feTurbulence type="fractalNoise" baseFrequency=".72" numOctaves="3" seed="11" stitchTiles="stitch"/>
+    <feColorMatrix values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  -11 0 0 0 6.6"/>
+  </filter>
+  <rect width="170" height="170" filter="url(#n)"/>
+</svg>
