@@ -1,12 +1,15 @@
-// A click-through layer above the page, in a closed shadow root so the
-// site's CSS can't reach it. It carries everything that acts on the page
-// as a whole: colour loss (a backdrop filter, so the site's layout is
-// never touched), grain, vignette, flicker, and the "decomposing" card,
-// which sits above the filter and stays crisp.
+// Everything that acts on the page as a whole.
 //
-// The host is a plain div on purpose: sites built on web components
-// (Reddit) style undefined custom elements, which silently disabled the
-// backdrop filter when the host was a custom element.
+// Colour loss is a filter on <html>. A backdrop-filter overlay looked
+// equivalent but silently stopped working once the page had been scrolled,
+// which is always, on a feed. A root filter doesn't break fixed headers
+// (the root is exempt from creating a containing block).
+//
+// Grain, vignette, flicker and the "decomposing" card live in a closed
+// shadow root on a manual popover, so they sit in the browser's top layer:
+// above the root filter (the card keeps its colour) and above the site.
+// The host is a plain div: sites built on web components (Reddit) style
+// undefined custom elements, which broke a custom-element host.
 (() => {
   const DD = globalThis.DD;
   const SNOOZE_MS = 10 * 60_000;
@@ -18,18 +21,15 @@
     all: initial !important;
     position: fixed !important;
     inset: 0 !important;
-    z-index: 2147483646 !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 !important;
+    overflow: hidden !important;
     pointer-events: none !important;
     display: block !important;
-    transition: --dd-sat 1s linear, --dd-sepia 1s linear, --dd-con 1s linear,
-      --dd-bri 1s linear, --dd-grain 1s linear, --dd-vig 1s linear !important;
+    transition: --dd-grain 1s linear, --dd-vig 1s linear !important;
   }
   .layer { position: absolute; inset: 0; }
-  .veil {
-    display: none;
-    backdrop-filter: saturate(var(--dd-sat)) sepia(var(--dd-sepia)) contrast(var(--dd-con)) brightness(var(--dd-bri));
-  }
-  :host([data-veil]) .veil { display: block; }
 
   .grain, .vignette, .flicker { display: none; }
   :host([data-broken]) :is(.grain, .vignette, .flicker) { display: block; }
@@ -147,7 +147,6 @@
     .card, :host([data-card]) .card { transform: none; filter: none; }
   }
 </style>
-<div class="layer veil"></div>
 <div class="layer vignette"></div>
 <div class="layer grain"></div>
 <div class="layer flicker"></div>
@@ -179,6 +178,7 @@
     constructor({ onCloseTab }) {
       this.host = document.createElement('div');
       this.host.setAttribute('data-dd-root', '');
+      this.host.setAttribute('popover', 'manual');
       const root = this.host.attachShadow({ mode: 'closed' });
       root.innerHTML = template();
       this.timeEl = root.querySelector('.time');
@@ -191,7 +191,89 @@
         this.host.removeAttribute('data-card');
       });
 
-      document.documentElement.append(this.host);
+      this.pageStyle = document.createElement('style');
+      this.pageStyle.id = 'dd-page';
+      this.pageStyle.textContent = 'html[data-dd-veil] {}';
+      this.lastFilter = '';
+      this.offSince = 0;
+      this.dark = null;
+      this.themeCheckedAt = 0;
+
+      this.mount();
+    }
+
+    mount() {
+      const html = document.documentElement;
+      if (!this.pageStyle.isConnected) {
+        html.append(this.pageStyle);
+        this.pageRule = this.pageStyle.sheet.cssRules[0];
+        this.lastFilter = '';
+      }
+      if (!this.host.isConnected) html.append(this.host);
+      if (!this.host.matches(':popover-open')) {
+        try {
+          this.host.showPopover();
+        } catch {
+          // Popover unsupported or blocked; the layers still render, just
+          // under the root filter instead of above it.
+        }
+      }
+    }
+
+    // Is the site in dark mode? Look at the first opaque background under
+    // the middle of the viewport. Checked every few seconds, not every tick.
+    isDark() {
+      const now = performance.now();
+      if (this.dark !== null && now - this.themeCheckedAt < 3000) return this.dark;
+      this.themeCheckedAt = now;
+      const stack = [
+        ...document.elementsFromPoint(innerWidth / 2, innerHeight / 2),
+        document.body,
+        document.documentElement,
+      ];
+      for (const el of stack) {
+        if (!el || el === this.host) continue;
+        const rgba = getComputedStyle(el).backgroundColor.match(/[\d.]+/g)?.map(Number);
+        if (!rgba || (rgba.length > 3 && rgba[3] < 0.5)) continue;
+        const [r, g, b] = rgba;
+        this.dark = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 < 0.4;
+        return this.dark;
+      }
+      this.dark = matchMedia('(prefers-color-scheme: dark)').matches;
+      return this.dark;
+    }
+
+    // Faded-photo colour. On dark pages contrast drops to lift black into a
+    // warm charcoal and turn white text cream; plain desaturation is
+    // invisible on a black-and-white page. Light pages get dimmed, creamy whites.
+    applyPageFilter(s) {
+      const html = document.documentElement;
+      const on = s.fade > 0.001 || s.sat < 0.999;
+      // When healing (reset, midnight), transition to identity first and
+      // only then drop the filter, so the colour eases back instead of snapping.
+      if (on) {
+        this.offSince = 0;
+        html.setAttribute('data-dd-veil', '');
+      } else if (html.hasAttribute('data-dd-veil')) {
+        this.offSince ||= performance.now();
+        if (performance.now() - this.offSince > 1000) {
+          html.removeAttribute('data-dd-veil');
+          this.lastFilter = '';
+          return;
+        }
+      } else {
+        return;
+      }
+      const dark = this.isDark();
+      const contrast = 1 - s.fade * (dark ? 0.24 : 0.09) + s.broken * 0.06;
+      const bright = 1 + s.fade * (dark ? 0.12 : -0.05) - s.broken * 0.05;
+      const filter =
+        `saturate(${s.sat.toFixed(3)}) contrast(${contrast.toFixed(3)}) ` +
+        `sepia(${s.sepia.toFixed(3)}) brightness(${bright.toFixed(3)})`;
+      if (filter === this.lastFilter) return;
+      this.lastFilter = filter;
+      this.pageRule.style.setProperty('filter', filter, 'important');
+      this.pageRule.style.setProperty('transition', 'filter 0.35s linear', 'important');
     }
 
     setVar(name, value) {
@@ -202,16 +284,11 @@
     }
 
     update(s, totalMs) {
-      if (!this.host.isConnected) document.documentElement.append(this.host);
+      this.mount();
+      this.applyPageFilter(s);
 
-      this.setVar('--dd-sat', s.sat);
-      this.setVar('--dd-sepia', s.sepia);
-      this.setVar('--dd-con', s.contrast);
-      this.setVar('--dd-bri', s.bright);
       this.setVar('--dd-grain', s.broken * 0.3);
       this.setVar('--dd-vig', s.broken);
-
-      this.host.toggleAttribute('data-veil', s.sat < 0.999 || s.sepia > 0.001 || s.contrast > 1.001);
       this.host.toggleAttribute('data-broken', s.broken > 0.001);
 
       const showCard = s.message && Date.now() > this.snoozedUntil;
@@ -226,10 +303,13 @@
 
     destroy() {
       this.host.remove();
+      this.pageStyle.remove();
+      document.documentElement.removeAttribute('data-dd-veil');
     }
 
     static scrub() {
-      document.querySelectorAll('div[data-dd-root]').forEach((n) => n.remove());
+      document.querySelectorAll('div[data-dd-root], style#dd-page').forEach((n) => n.remove());
+      document.documentElement.removeAttribute('data-dd-veil');
     }
   };
 })();

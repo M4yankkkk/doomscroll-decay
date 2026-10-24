@@ -21,30 +21,35 @@
   DD.decayAt = (minutes, t) => {
     const m = minutes;
     const { fade, bleed, warp, unravel, rot } = t;
-    const brokenStart = unravel + (rot - unravel) * 0.6;
+    // Each stage lands visibly within ~1 minute of its threshold (about a
+    // second in demo mode), then keeps deepening until the next stage.
+    // Ramping from zero across a whole stage read as "nothing happening".
+    const land = (from, to) => from + Math.min(1, (to - from) * 0.2);
+    const [f1, b1, w1, u1] = [land(fade, bleed), land(bleed, warp), land(warp, unravel), land(unravel, rot)];
+    const brokenStart = unravel + (rot - unravel) * 0.5;
 
     return {
       minutes: m,
       stage: DD.stageAt(m, t),
 
-      // Whole-page colour, applied through a backdrop filter overlay.
-      sat: ramp(m, [[fade, 1], [bleed, 0.8], [warp, 0.62], [unravel, 0.42], [rot, 0.07]]),
-      sepia: ramp(m, [[bleed, 0], [rot, 0.24]]),
-      contrast: ramp(m, [[warp, 1], [rot, 1.1]]),
-      bright: ramp(m, [[unravel, 1], [rot, 0.94]]),
+      // Whole-page colour. `fade` drives the washed-out "old photo" look:
+      // lifted blacks on dark pages, dimmed whites on light ones.
+      sat: ramp(m, [[fade, 1], [f1, 0.72], [bleed, 0.64], [warp, 0.5], [unravel, 0.36], [rot, 0.06]]),
+      sepia: ramp(m, [[fade, 0], [f1, 0.28], [unravel, 0.36], [rot, 0.4]]),
+      fade: ramp(m, [[fade, 0], [f1, 0.65], [bleed, 0.72], [unravel, 0.88], [rot, 1]]),
 
       // Ink bleed + erosion: share of text elements affected, and how hard.
-      inkShare: ramp(m, [[bleed, 0], [warp, 0.14], [unravel, 0.32], [rot, 0.72]]),
-      ink: ramp(m, [[bleed, 0.45], [unravel, 0.75], [rot, 1]]),
-      erode: ramp(m, [[bleed, 0.12], [warp, 0.3], [unravel, 0.5], [rot, 0.82]]),
+      inkShare: ramp(m, [[bleed, 0], [b1, 0.25], [warp, 0.38], [unravel, 0.58], [rot, 0.88]]),
+      ink: ramp(m, [[bleed, 0.75], [unravel, 0.95], [rot, 1.15]]),
+      erode: ramp(m, [[bleed, 0.32], [warp, 0.45], [unravel, 0.62], [rot, 0.86]]),
 
-      // Posts tilt, images pixelate (block size in px; < 2 means off).
-      tilt: ramp(m, [[warp, 0], [unravel, 0.9], [rot, 1.8]]),
-      pixel: ramp(m, [[warp, 1], [unravel, 4], [rot, 11]]),
+      // Posts tilt (degrees), images pixelate (block size in px; < 2 means off).
+      tilt: ramp(m, [[warp, 0], [w1, 0.7], [unravel, 1.25], [rot, 2.3]]),
+      pixel: ramp(m, [[warp, 1], [w1, 3], [unravel, 6], [rot, 14]]),
 
       // Text blocks that sway, and how far (px).
-      wobbleShare: ramp(m, [[unravel, 0], [rot, 0.45]]),
-      wobble: ramp(m, [[unravel, 0.5], [rot, 1.8]]),
+      wobbleShare: ramp(m, [[unravel, 0], [u1, 0.28], [rot, 0.6]]),
+      wobble: ramp(m, [[unravel, 1.4], [rot, 3.2]]),
 
       // Grain, vignette, flicker, jitter and the message, 0..1.
       broken: ramp(m, [[brokenStart, 0], [rot, 1]]),

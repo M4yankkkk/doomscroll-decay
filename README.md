@@ -34,7 +34,7 @@ Totals are kept per site, per day, in `chrome.storage.local`, keyed by your loca
 | 20 min | Unravelling | Text wobbles; more of it bleeds. |
 | 30 min | Decomposed | Near-grayscale, grain, vignette, heavy pixelation, the odd glitch, and the note. |
 
-No effect switches on at a boundary. Each one is a continuous ramp between stages, and every text element fades in on its own schedule. Reset (or midnight) heals the page the same way.
+No effect switches on abruptly. Each stage eases in visibly within about a minute of its threshold, then keeps deepening until the next one, and every text element fades in on its own schedule. Reset (or midnight) heals the page the same way.
 
 Thresholds and the site list are configurable from the settings page (the sliders icon in the popup). Adding a site asks Chrome for permission to run on that domain; subdomains are included.
 
@@ -62,7 +62,10 @@ assets/        icons, bundled fonts (OFL), grain and erosion textures
 
 A few details worth knowing if you change things:
 
-- **Colour loss uses a `backdrop-filter` overlay**, not a filter or transform on `<html>`. Transforming the root breaks every `position: fixed` header on the page, so tilt is applied to individual posts instead.
+- **Colour loss is a filter on `<html>`.** A `backdrop-filter` overlay stops working once the page has been scrolled (always, on a feed), and a *transform* on the root would break every `position: fixed` header. A root filter does neither. That's also why tilt is applied to individual posts.
+- **The fade adapts to the theme.** Desaturating a black-and-white page does nothing, so on dark sites the fade lifts black into a warm charcoal and turns white text cream; on light sites the whites dim to a creamy paper.
+- **Grain, vignette and the note live in the top layer** (a manual popover in a closed shadow root), so they sit above the root filter and the note keeps its colour.
+- **Every stage lands visibly within about a minute of its threshold** (about a second in demo mode), then keeps deepening.
 - **Ink bleed and erosion** are a thin text stroke plus a soft shadow, and a mask that blends from solid to a speckle texture. Nothing that affects layout changes, so the feed never reflows.
 - **Textures and fonts are extension files**, not `data:` URIs. Sites' Content Security Policies commonly block `data:` images; extension resources aren't affected.
 - **Global strengths aren't transitioned on `:root`.** That would restyle the whole page every frame. They step four times a second, and smoothness comes from per-element transitions.

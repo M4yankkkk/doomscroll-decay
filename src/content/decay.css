@@ -7,7 +7,7 @@
  * property on :root would restyle the entire page every frame. Smoothness
  * comes from per-element transitions (--dd-in, --dd-win, rotate) instead.
  *
- * Colour loss, grain and the message live in overlay.js, outside the page.
+ * Colour loss (a root filter), grain and the message live in overlay.js.
  */
 
 @property --dd-ink-s { syntax: '<number>'; inherits: true; initial-value: 0; }
@@ -17,11 +17,7 @@
 @property --dd-broken { syntax: '<number>'; inherits: true; initial-value: 0; }
 @property --dd-in { syntax: '<number>'; inherits: false; initial-value: 0; }
 
-/* Overlay colour/grain values; set on the overlay host only. */
-@property --dd-sat { syntax: '<number>'; inherits: true; initial-value: 1; }
-@property --dd-sepia { syntax: '<number>'; inherits: true; initial-value: 0; }
-@property --dd-con { syntax: '<number>'; inherits: true; initial-value: 1; }
-@property --dd-bri { syntax: '<number>'; inherits: true; initial-value: 1; }
+/* Grain/vignette strength; set on the overlay host only. */
 @property --dd-grain { syntax: '<number>'; inherits: true; initial-value: 0; }
 @property --dd-vig { syntax: '<number>'; inherits: true; initial-value: 0; }
 @property --dd-win { syntax: '<number>'; inherits: false; initial-value: 0; }

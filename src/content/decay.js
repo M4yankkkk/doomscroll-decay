@@ -32,6 +32,7 @@
       this.wobTargets = new Set();
       this.lastVars = {};
       this.lastPixel = 0;
+      this.tiltOffSince = 0;
       this.state = null;
 
       this.styleEl = document.createElement('style');
@@ -104,7 +105,14 @@
       this.setVar('--dd-wobble', s.wobble);
       this.setVar('--dd-broken', s.broken);
 
-      html.toggleAttribute('data-dd-tilt', s.tilt > 0.005);
+      // Tilt eases back to 0 through its rotate transition before the attribute goes.
+      if (s.tilt > 0.005) {
+        this.tiltOffSince = 0;
+        html.setAttribute('data-dd-tilt', '');
+      } else if (html.hasAttribute('data-dd-tilt')) {
+        this.tiltOffSince ||= performance.now();
+        if (performance.now() - this.tiltOffSince > 1000) html.removeAttribute('data-dd-tilt');
+      }
       const pixel = Math.round(s.pixel);
       html.toggleAttribute('data-dd-pix', pixel >= 2);
       if (pixel >= 2) this.setPixelSize(pixel);
@@ -139,7 +147,10 @@
 
     scan(deadline) {
       this.idleHandle = null;
-      while (deadline.timeRemaining() > 2) {
+      // A feed that's being scrolled is rarely idle, so when the callback
+      // fires on its timeout, still take a small fixed slice of work.
+      const stop = performance.now() + Math.min(Math.max(deadline.timeRemaining() - 1, 4), 12);
+      while (performance.now() < stop) {
         if (!this.walker) {
           const next = this.pendingNodes.values().next();
           if (next.done) break;
@@ -209,16 +220,18 @@
       const wobWanted = new Map(); // target -> wants jitter
       let alive = 0;
 
+      // Reads first (wobble targets need computed style and layout), then
+      // all the attribute writes, so the page lays out once, not per element.
       for (const e of this.entries) {
         if (!e.el.isConnected) continue;
         this.entries[alive++] = e;
-        this.setFlag(e.el, 'data-dd-ink', e.r < s.inkShare);
         if (e.w < s.wobbleShare) {
           const t = this.wobbleTarget(e);
           if (t) wobWanted.set(t, wobWanted.get(t) || e.j < jitShare);
         }
       }
       this.entries.length = alive;
+      for (const e of this.entries) this.setFlag(e.el, 'data-dd-ink', e.r < s.inkShare);
 
       for (const t of this.wobTargets) {
         if (!t.isConnected) this.wobTargets.delete(t);
