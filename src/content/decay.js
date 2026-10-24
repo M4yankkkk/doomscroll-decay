@@ -40,9 +40,8 @@
       document.documentElement.append(this.styleEl);
       this.styleEl.sheet.insertRule(':root {}', 0);
       this.rootRule = this.styleEl.sheet.cssRules[0];
-      this.rootRule.style.setProperty(
-        '--dd-erode-mask',
-        `url("${chrome.runtime.getURL('assets/textures/erode.svg')}")`,
+      this.dropTexture = DD.useTexture('erode', (url) =>
+        this.rootRule.style.setProperty('--dd-erode-mask', url),
       );
 
       this.defs = this.buildFilters();
@@ -258,6 +257,7 @@
     }
 
     destroy() {
+      this.dropTexture();
       this.observer.disconnect();
       if (this.idleHandle != null) cancelIdleCallback(this.idleHandle);
       DD.Decay.scrub();

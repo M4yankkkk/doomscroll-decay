@@ -53,7 +53,7 @@ manifest.json
 src/
   shared/      config.js (defaults, helpers), decay-curve.js (minutes → effect strengths), ui.css
   background/  service-worker.js: the only writer of totals; registers content scripts per site; badge
-  content/     tracker.js (active time), decay.js + decay.css (text, tilt, pixelation),
+  content/     tracker.js (active time), assets.js (textures, fonts), decay.js + decay.css (text, tilt, pixelation),
                overlay.js (colour, grain, the note), main.js (wiring)
   popup/       today's time, stage, per-site breakdown, demo toggle, reset
   options/     sites and thresholds
@@ -67,7 +67,7 @@ A few details worth knowing if you change things:
 - **Grain, vignette and the note live in the top layer** (a manual popover in a closed shadow root), so they sit above the root filter and the note keeps its colour.
 - **Every stage lands visibly within about a minute of its threshold** (about a second in demo mode), then keeps deepening.
 - **Ink bleed and erosion** are a thin text stroke plus a soft shadow, and a mask that blends from solid to a speckle texture. Nothing that affects layout changes, so the feed never reflows.
-- **Textures and fonts are extension files**, not `data:` URIs. Sites' Content Security Policies commonly block `data:` images; extension resources aren't affected.
+- **The page never requests `chrome-extension://` URLs directly** when it can avoid it. YouTube rejects those loads ("Unsafe attempt to load URL"). Textures are same-origin `blob:` URLs (falling back to the extension file only where CSP blocks `blob:`, checked once with a hidden probe), and fonts are handed over as bytes by the service worker.
 - **Global strengths aren't transitioned on `:root`.** That would restyle the whole page every frame. They step four times a second, and smoothness comes from per-element transitions.
 - Respects `prefers-reduced-motion`: the rot stays, the movement goes.
 

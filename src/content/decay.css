@@ -37,8 +37,7 @@
  * ink spread. Erosion: a solid mask layer is unioned with a speckle mask;
  * as the solid layer's alpha drops, only the speckles survive and the
  * letters wear away. No layout properties change, so nothing reflows.
- * The speckle texture is an extension file (decay.js sets --dd-erode-mask):
- * sites' CSP often blocks data: images but never extension resources.
+ * The speckle texture comes from assets.js (decay.js sets --dd-erode-mask).
  */
 [data-dd-ink] {
   transition: --dd-in 2.8s cubic-bezier(0.25, 0.6, 0.3, 1);

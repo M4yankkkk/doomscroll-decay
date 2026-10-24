@@ -8,12 +8,14 @@ const CONTENT_JS = [
   'src/shared/config.js',
   'src/shared/decay-curve.js',
   'src/content/tracker.js',
+  'src/content/assets.js',
   'src/content/decay.js',
   'src/content/overlay.js',
   'src/content/main.js',
 ];
 const CONTENT_CSS = ['src/content/decay.css'];
 const KEEP_DAYS = 14;
+const ASSET_PATHS = ['assets/fonts/instrument-serif-italic.woff2', 'assets/fonts/inter-var.woff2'];
 
 // Serialise every read-modify-write of storage.
 let chain = Promise.resolve();
@@ -134,6 +136,18 @@ const handlers = {
       await chrome.storage.local.set(update);
       return { ok: true };
     }),
+
+  // Font bytes for the content script, so the page never has to request a
+  // chrome-extension:// URL itself (YouTube rejects those).
+  asset: async ({ path }) => {
+    if (!ASSET_PATHS.includes(path)) return { ok: false };
+    const bytes = new Uint8Array(await (await fetch(chrome.runtime.getURL(path))).arrayBuffer());
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    }
+    return { ok: true, base64: btoa(binary) };
+  },
 
   closeTab: (_msg, sender) => {
     if (sender.tab?.id != null) chrome.tabs.remove(sender.tab.id);

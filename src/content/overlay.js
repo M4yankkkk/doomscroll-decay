@@ -35,7 +35,7 @@
   :host([data-broken]) :is(.grain, .vignette, .flicker) { display: block; }
   .grain {
     inset: -110px;
-    background: url("${chrome.runtime.getURL('assets/textures/grain.svg')}");
+    background-image: var(--dd-grain-img);
     opacity: var(--dd-grain);
     animation: grain 0.9s steps(1, end) infinite;
   }
@@ -160,20 +160,6 @@
   </div>
 </div>`;
 
-  let fontsLoaded = false;
-  function loadFonts() {
-    if (fontsLoaded) return;
-    fontsLoaded = true;
-    const faces = [
-      new FontFace('Doomscroll Serif', `url(${chrome.runtime.getURL('assets/fonts/instrument-serif-italic.woff2')})`, { style: 'italic' }),
-      new FontFace('Doomscroll Sans', `url(${chrome.runtime.getURL('assets/fonts/inter-var.woff2')})`, { weight: '100 900' }),
-    ];
-    for (const face of faces) {
-      document.fonts.add(face);
-      face.load().catch(() => {}); // Blocked by the page? The fallback stack is fine.
-    }
-  }
-
   DD.Overlay = class {
     constructor({ onCloseTab }) {
       this.host = document.createElement('div');
@@ -190,6 +176,8 @@
         this.snoozedUntil = Date.now() + SNOOZE_MS;
         this.host.removeAttribute('data-card');
       });
+
+      this.dropTexture = DD.useTexture('grain', (url) => this.host.style.setProperty('--dd-grain-img', url));
 
       this.pageStyle = document.createElement('style');
       this.pageStyle.id = 'dd-page';
@@ -293,7 +281,7 @@
 
       const showCard = s.message && Date.now() > this.snoozedUntil;
       if (showCard) {
-        loadFonts();
+        DD.loadFonts();
         const minutes = Math.floor(totalMs / 60000);
         const text = `${minutes} minute${minutes === 1 ? '' : 's'} of feed today`;
         if (this.timeEl.textContent !== text) this.timeEl.textContent = text;
@@ -302,6 +290,7 @@
     }
 
     destroy() {
+      this.dropTexture();
       this.host.remove();
       this.pageStyle.remove();
       document.documentElement.removeAttribute('data-dd-veil');
